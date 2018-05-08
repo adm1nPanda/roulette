@@ -1,6 +1,19 @@
 import random
 import dns.reversename
 import argparse
+import nmap
+
+class bcolors:
+    HEADER = '\033[95m'
+    OKBLUE = '\033[94m'
+    OKGREEN = '\033[92m'
+    WARNING = '\033[93m'
+    FAIL = '\033[91m'
+    ENDC = '\033[0m'
+    BOLD = '\033[1m'
+    UNDERLINE = '\033[4m'
+
+# print bcolors.WARNING + + bcolors.ENDC
 
 def generate_ip_port(static_port):
 	ip = ""
@@ -18,21 +31,42 @@ def generate_ip_port(static_port):
 def get_dns(ip):
 	n = dns.reversename.from_address(ip)
 	if  n != None:
-		print "DNS Result : {0}".format(n)
+		print bcolors.OKGREEN + "DNS Result : {0}".format(n) + bcolors.ENDC
 	else:
-		print "DNS Failed" 
+		print bcolors.WARNING + "DNS Failed" + bcolors.ENDC
+
+def check_tcp(ip, p):
+	nm = nmap.PortScanner()
+	nm.scan(hosts=ip, arguments='-n -sS -p'+p)
+	
+	for x in nm.all_hosts():
+		if nm[x]['status']['state'] == "up" :
+			return True
+		else:
+			return False
 
 if __name__ == "__main__":
 	parser = argparse.ArgumentParser(description='Identify services on the internet.')
 	parser.add_argument('--dns', action='store_const', const=True, help='resolve DNS query')
 	parser.add_argument('--port', metavar='p', type=str, nargs='?', help='set static ip')
+	parser.add_argument('--open', action='store_const', const=True, help='print only if port is OPEN')
+	parser.add_argument('--loop', metavar='lp', type=int, nargs='?', default=1, help='Loop n times')
 	args = parser.parse_args()
 
-	ip,port = generate_ip_port(args.port)
-	print "{0}[:{1}]".format(ip,port) 
+	for n in xrange(args.loop):
+		ip,port = generate_ip_port(args.port)
 
-	if args.dns:
-		dns = get_dns(ip)
+		if args.dns:
+			dns = get_dns(ip)
 
-
-	
+		succ = check_tcp(ip, port)
+		if args.open == True:
+			if succ == True:
+				print "{0}[:{1}]".format(ip,port) 
+				print "TCP connection status - " + bcolors.OKGREEN + "Success" + bcolors.ENDC
+		else:
+			print "{0}[:{1}]".format(ip,port) 
+			if succ == True:
+				print "TCP connection status - " + bcolors.OKGREEN + "Success" + bcolors.ENDC
+			else:
+				print "TCP connection status - " + bcolors.FAIL + "FAIL" + bcolors.ENDC
